@@ -20,7 +20,22 @@ from SessionNavigationComponent import SessionNavigationComponent
 from TransportViewModeSelector import TransportViewModeSelector
 from SpecialMixerComponent import SpecialMixerComponent
 from consts import *
+
+# Const values
 IS_MOMENTARY = True
+
+PAD_MODE_CC = 0
+PAD_MODE_NOTES = 1
+
+# User settings
+PADS_CHANNEL = 1
+PADS_CC_START = 101
+PADS_NOTES_START = 36
+SCENES_CHANNEL = 3
+SCENES_NOTES_START = 36
+
+# Fixed
+PADS_LED_START = 9
 
 def make_button(cc_no, name):
     button = ButtonElement(IS_MOMENTARY, MIDI_CC_TYPE, 1, cc_no)
@@ -33,8 +48,12 @@ def make_configurable_button(cc_no, name, type = MIDI_NOTE_TYPE, channel = 1):
     button.name = name
     return button
 
-def make_toggle_button(cc_no, name, channel = 1):
-    button = ConfigurableButtonElement(False, MIDI_CC_TYPE, channel, cc_no)
+def make_pad_button(pad_mode, pad_no, name):
+    if pad_mode is PAD_MODE_CC:
+        button = ButtonElement(IS_MOMENTARY, MIDI_CC_TYPE, PADS_CHANNEL, PADS_CC_START + pad_no)
+    else:
+        button = ButtonElement(IS_MOMENTARY, MIDI_NOTE_TYPE, PADS_CHANNEL, PADS_NOTES_START + pad_no)
+    
     button.name = name
     return button
 
@@ -56,28 +75,25 @@ def make_slider(cc_no, name):
 class LaunchkeyControlFactory(object):
 
     def create_next_track_button(self):
-        return make_button(107, 'Next_Track_Button')
+        return make_pad_button(PAD_MODE_CC, 6, 'Next_Track_Button')
 
     def create_prev_track_button(self):
-        return make_button(106, 'Prev_Track_Button')
+        return make_pad_button(PAD_MODE_CC, 5, 'Prev_Track_Button')
 
     def create_scene_launch_button(self):
-        return make_configurable_button(102, 'Scene_Launch_Button', MIDI_CC_TYPE)
+        return make_pad_button(PAD_MODE_CC, 1, 'Scene_Launch_Button')
 
     def create_scene_stop_button(self):
-        return make_configurable_button(110, 'Scene_Stop_Button', MIDI_CC_TYPE)
+        return make_pad_button(PAD_MODE_CC, 9, 'Scene_Stop_Button')
 
     def create_clip_launch_button(self, index):
-        return make_configurable_button(36 + index, 'Clip_Launch_%d' % index)
+        return make_pad_button(PAD_MODE_NOTES, index, 'Clip_Launch_%d' % index)
 
     def create_clip_stop_button(self, index):
-        return make_configurable_button(44 + index, 'Clip_Stop_%d' % index)
+        return make_pad_button(PAD_MODE_NOTES, 8 + index, 'Clip_Stop_%d' % index)
 
     def create_clip_undo_button(self):
-        return make_button(105, 'Clip_Delete_Button')
-
-    def create_clip_duplicate_button(self):
-        return make_toggle_button(23, 'Clip_Duplicate_Button')
+        return make_pad_button(PAD_MODE_CC, 4, 'Clip_Undo_Button')
 
 
 class MPK_mini_hero(ControlSurface):
@@ -157,16 +173,7 @@ class MPK_mini_hero(ControlSurface):
 
     def _setup_clipslot(self):
         clip_undo_button = self._control_factory.create_clip_undo_button()
-        clip_duplicate_button = self._control_factory.create_clip_duplicate_button()
-
         self._do_undo.subject = clip_undo_button;
-
-
-        # self._clipslot = ClipSlotComponent()
-        # self._clipslot.name = 'Selected_Clip_Slot'
-        # self._clipslot.set_delete_button(clip_undo_button)
-        # self._clipslot.set_duplicate_button(clip_duplicate_button)
-        # self._clipslot.update()
 
     @subject_slot('value')
     def _do_undo(self, value):
@@ -176,13 +183,13 @@ class MPK_mini_hero(ControlSurface):
                 self.show_message(str('UNDO'))
 
     def _setup_transport(self):
-        rwd_button = make_button(108, 'Rwd_Button')
-        ffwd_button = make_button(104, 'FFwd_Button')
-        stop_button = make_button(111, 'Stop_Button')
-        play_button = make_button(112, 'Play_Button')
-        loop_button = make_button(113, 'Loop_Button')
-        rec_button = make_button(114, 'Record_Button')
-        overdub_button = make_button(103, 'Session_Overdub_Button')
+        rwd_button = make_pad_button(PAD_MODE_CC, 7, 'Rwd_Button')
+        ffwd_button = make_pad_button(PAD_MODE_CC, 3, 'FFwd_Button')
+        stop_button = make_pad_button(PAD_MODE_CC, 10, 'Stop_Button')
+        play_button = make_pad_button(PAD_MODE_CC, 11, 'Play_Button')
+        loop_button = make_pad_button(PAD_MODE_CC, 12, 'Loop_Button')
+        rec_button = make_pad_button(PAD_MODE_CC, 13, 'Record_Button')
+        overdub_button = make_pad_button(PAD_MODE_CC, 2, 'Session_Overdub_Button')
 
         transport = TransportComponent()
         transport.name = 'Transport'
