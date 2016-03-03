@@ -108,7 +108,6 @@ class MPK_mini_hero(ControlSurface):
             self._device_selection_follows_track_selection = True
             self._suggested_input_port = 'MPK mini'
             self._suggested_output_port = 'MPK mini'
-            self._current_midi_map = None
 
             self._setup_session()
             self._setup_transport()
@@ -142,14 +141,9 @@ class MPK_mini_hero(ControlSurface):
         ControlSurface.disconnect(self)
 
         self._encoders = None
-        self._current_midi_map = None
         self._transport_view_modes = None
         self._send_midi(LED_FLASHING_OFF)
         self._send_midi(LIVE_MODE_OFF)
-
-    def build_midi_map(self, midi_map_handle):
-        self._current_midi_map = midi_map_handle
-        ControlSurface.build_midi_map(self, midi_map_handle)
 
     def _setup_session(self):
         scene_launch_button = self._control_factory.create_scene_launch_button()
