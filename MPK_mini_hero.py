@@ -37,12 +37,7 @@ SCENES_NOTES_START = 36
 # Fixed
 PADS_LED_START = 9
 
-def make_button(cc_no, name):
-    button = ButtonElement(IS_MOMENTARY, MIDI_CC_TYPE, 1, cc_no)
-    button.name = name
-    return button
-
-
+# TODO: Get rid of me
 def make_configurable_button(cc_no, name, type = MIDI_NOTE_TYPE, channel = 1):
     button = ConfigurableButtonElement(IS_MOMENTARY, type, channel, cc_no)
     button.name = name
@@ -71,37 +66,11 @@ def make_slider(cc_no, name):
     slider.name = name
     return slider
 
-
-class LaunchkeyControlFactory(object):
-
-    def create_next_track_button(self):
-        return make_pad_button(PAD_MODE_CC, 6, 'Next_Track_Button')
-
-    def create_prev_track_button(self):
-        return make_pad_button(PAD_MODE_CC, 5, 'Prev_Track_Button')
-
-    def create_scene_launch_button(self):
-        return make_pad_button(PAD_MODE_CC, 1, 'Scene_Launch_Button')
-
-    def create_scene_stop_button(self):
-        return make_pad_button(PAD_MODE_CC, 9, 'Scene_Stop_Button')
-
-    def create_clip_launch_button(self, index):
-        return make_pad_button(PAD_MODE_NOTES, index, 'Clip_Launch_%d' % index)
-
-    def create_clip_stop_button(self, index):
-        return make_pad_button(PAD_MODE_NOTES, 8 + index, 'Clip_Stop_%d' % index)
-
-    def create_clip_undo_button(self):
-        return make_pad_button(PAD_MODE_CC, 4, 'Clip_Undo_Button')
-
-
 class MPK_mini_hero(ControlSurface):
     """ Script for Novation's Launchkey 25/49/61 keyboards """
 
-    def __init__(self, c_instance, control_factory = LaunchkeyControlFactory(), identity_response = SIZE_RESPONSE):
+    def __init__(self, c_instance, identity_response = SIZE_RESPONSE):
         ControlSurface.__init__(self, c_instance)
-        self._control_factory = control_factory
         self._identity_response = identity_response
         with self.component_guard():
             self.set_pad_translations(PAD_TRANSLATIONS)
@@ -109,6 +78,7 @@ class MPK_mini_hero(ControlSurface):
             self._suggested_input_port = 'MPK mini'
             self._suggested_output_port = 'MPK mini'
 
+            self._setup_buttons()
             self._setup_session()
             self._setup_transport()
             # self._setup_device()
@@ -145,29 +115,39 @@ class MPK_mini_hero(ControlSurface):
         self._send_midi(LED_FLASHING_OFF)
         self._send_midi(LIVE_MODE_OFF)
 
+    def _setup_buttons(self):
+        self._scene_launch_button = make_pad_button(PAD_MODE_CC, 1, 'Scene_Launch_Button')
+        self._overdub_button = make_pad_button(PAD_MODE_CC, 2, 'Session_Overdub_Button')
+        self._ffwd_button = make_pad_button(PAD_MODE_CC, 3, 'FFwd_Button')
+        self._clip_undo_button = make_pad_button(PAD_MODE_CC, 4, 'Clip_Undo_Button')
+        self._prev_track_button = make_pad_button(PAD_MODE_CC, 5, 'Prev_Track_Button')
+        self._next_track_button = make_pad_button(PAD_MODE_CC, 6, 'Next_Track_Button')
+        self._rwd_button = make_pad_button(PAD_MODE_CC, 7, 'Rwd_Button')
+        self._scene_stop_button = make_pad_button(PAD_MODE_CC, 9, 'Scene_Stop_Button')
+        self._stop_button = make_pad_button(PAD_MODE_CC, 10, 'Stop_Button')
+        self._play_button = make_pad_button(PAD_MODE_CC, 11, 'Play_Button')
+        self._loop_button = make_pad_button(PAD_MODE_CC, 12, 'Loop_Button')
+        self._rec_button = make_pad_button(PAD_MODE_CC, 13, 'Record_Button')
+
+        self._clip_launch_buttons = [ make_pad_button(PAD_MODE_NOTES, index, 'Clip_Launch_%d' % index) for index in xrange(8) ]
+        self._clip_stop_buttons = [ make_pad_button(PAD_MODE_NOTES, 8 + index, 'Clip_Stop_%d' % index) for index in xrange(8) ]
+
     def _setup_session(self):
-        scene_launch_button = self._control_factory.create_scene_launch_button()
-        scene_stop_button = self._control_factory.create_scene_stop_button()
         self._session = SessionComponent(8, 0)
         self._session.name = 'Session_Control'
         self._session.selected_scene().name = 'Selected_Scene'
-        self._session.selected_scene().set_launch_button(scene_launch_button)
-        self._session.set_stop_all_clips_button(scene_stop_button)
-        clip_launch_buttons = []
-        clip_stop_buttons = []
+        self._session.selected_scene().set_launch_button(self._scene_launch_button)
+        self._session.set_stop_all_clips_button(self._scene_stop_button)
+
         for index in range(8):
-            clip_launch_buttons.append(self._control_factory.create_clip_launch_button(index))
-            clip_stop_buttons.append(self._control_factory.create_clip_stop_button(index))
             clip_slot = self._session.selected_scene().clip_slot(index)
-            
-            clip_slot.set_launch_button(clip_launch_buttons[-1])
+            clip_slot.set_launch_button(self._clip_launch_buttons[index])
             clip_slot.name = 'Selected_Clip_Slot_' + str(index)
 
-        self._session.set_stop_track_clip_buttons(tuple(clip_stop_buttons))
+        self._session.set_stop_track_clip_buttons(tuple(self._clip_stop_buttons))
 
     def _setup_clipslot(self):
-        clip_undo_button = self._control_factory.create_clip_undo_button()
-        self._do_undo.subject = clip_undo_button;
+        self._do_undo.subject = self._clip_undo_button;
 
     @subject_slot('value')
     def _do_undo(self, value):
@@ -177,24 +157,16 @@ class MPK_mini_hero(ControlSurface):
                 self.show_message(str('UNDO'))
 
     def _setup_transport(self):
-        rwd_button = make_pad_button(PAD_MODE_CC, 7, 'Rwd_Button')
-        ffwd_button = make_pad_button(PAD_MODE_CC, 3, 'FFwd_Button')
-        stop_button = make_pad_button(PAD_MODE_CC, 10, 'Stop_Button')
-        play_button = make_pad_button(PAD_MODE_CC, 11, 'Play_Button')
-        loop_button = make_pad_button(PAD_MODE_CC, 12, 'Loop_Button')
-        rec_button = make_pad_button(PAD_MODE_CC, 13, 'Record_Button')
-        overdub_button = make_pad_button(PAD_MODE_CC, 2, 'Session_Overdub_Button')
-
         transport = TransportComponent()
         transport.name = 'Transport'
-        transport.set_stop_button(stop_button)
-        transport.set_play_button(play_button)
-        transport.set_record_button(rec_button)
-        transport.set_loop_button(loop_button)
-        self._transport_view_modes = TransportViewModeSelector(transport, self._session, ffwd_button, rwd_button)
+        transport.set_stop_button(self._stop_button)
+        transport.set_play_button(self._play_button)
+        transport.set_record_button(self._rec_button)
+        transport.set_loop_button(self._loop_button)
+        self._transport_view_modes = TransportViewModeSelector(transport, self._session, self._ffwd_button, self._rwd_button)
         self._transport_view_modes.name = 'Transport_View_Modes'
 
-        session_recording = SessionRecordingComponent(ClipCreator(), ViewControlComponent(), name='Session_Recording', is_enabled=False, layer=Layer(record_button=overdub_button))
+        session_recording = SessionRecordingComponent(ClipCreator(), ViewControlComponent(), name='Session_Recording', is_enabled=False, layer=Layer(record_button=self._overdub_button))
         session_recording.set_enabled(True)
 
     def _setup_device(self):
@@ -206,8 +178,6 @@ class MPK_mini_hero(ControlSurface):
         device.set_parameter_controls(self._encoders)
 
     def _setup_navigation(self):
-        self._next_track_button = self._control_factory.create_next_track_button()
-        self._prev_track_button = self._control_factory.create_prev_track_button()
         self._session_navigation = SessionNavigationComponent(name='Session_Navigation')
         self._session_navigation.set_next_track_button(self._next_track_button)
         self._session_navigation.set_prev_track_button(self._prev_track_button)
