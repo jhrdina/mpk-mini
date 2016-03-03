@@ -79,11 +79,8 @@ class MPK_mini_hero(ControlSurface):
             self._suggested_output_port = 'MPK mini'
 
             self._setup_buttons()
-            self._setup_session()
-            self._setup_transport()
-            # self._setup_device()
-            self._setup_navigation()
-            self._setup_clipslot()
+            self._setup_components()
+
             for component in self.components:
                 component.set_enabled(True) # Puvodne False
 
@@ -116,6 +113,7 @@ class MPK_mini_hero(ControlSurface):
         self._send_midi(LIVE_MODE_OFF)
 
     def _setup_buttons(self):
+        # Pads CC Mode
         self._scene_launch_button = make_pad_button(PAD_MODE_CC, 1, 'Scene_Launch_Button')
         self._overdub_button = make_pad_button(PAD_MODE_CC, 2, 'Session_Overdub_Button')
         self._ffwd_button = make_pad_button(PAD_MODE_CC, 3, 'FFwd_Button')
@@ -129,10 +127,18 @@ class MPK_mini_hero(ControlSurface):
         self._loop_button = make_pad_button(PAD_MODE_CC, 12, 'Loop_Button')
         self._rec_button = make_pad_button(PAD_MODE_CC, 13, 'Record_Button')
 
+        # Pads Notes Mode
         self._clip_launch_buttons = [ make_pad_button(PAD_MODE_NOTES, index, 'Clip_Launch_%d' % index) for index in xrange(8) ]
         self._clip_stop_buttons = [ make_pad_button(PAD_MODE_NOTES, 8 + index, 'Clip_Stop_%d' % index) for index in xrange(8) ]
 
-    def _setup_session(self):
+        # Encoders
+
+        self._encoders = tuple([ make_encoder(21 + index, 'Device_Control_%d' % index) for index in xrange(8) ])
+
+    def _setup_components(self):
+        
+        # Session
+
         self._session = SessionComponent(8, 0)
         self._session.name = 'Session_Control'
         self._session.selected_scene().name = 'Selected_Scene'
@@ -146,8 +152,36 @@ class MPK_mini_hero(ControlSurface):
 
         self._session.set_stop_track_clip_buttons(tuple(self._clip_stop_buttons))
 
-    def _setup_clipslot(self):
+        # Undo
+
         self._do_undo.subject = self._clip_undo_button;
+
+        # Transport
+
+        transport = TransportComponent()
+        transport.name = 'Transport'
+        transport.set_stop_button(self._stop_button)
+        transport.set_play_button(self._play_button)
+        transport.set_record_button(self._rec_button)
+        transport.set_loop_button(self._loop_button)
+
+        self._transport_view_modes = TransportViewModeSelector(transport, self._session, self._ffwd_button, self._rwd_button)
+        self._transport_view_modes.name = 'Transport_View_Modes'
+
+        session_recording = SessionRecordingComponent(ClipCreator(), ViewControlComponent(), name='Session_Recording', is_enabled=False, layer=Layer(record_button=self._overdub_button))
+
+        # Device
+
+        device = DeviceComponent()
+        device.name = 'Device_Component'
+        self.set_device_component(device)
+        device.set_parameter_controls(self._encoders)
+
+        # Navigation
+
+        self._session_navigation = SessionNavigationComponent(name='Session_Navigation')
+        self._session_navigation.set_next_track_button(self._next_track_button)
+        self._session_navigation.set_prev_track_button(self._prev_track_button)
 
     @subject_slot('value')
     def _do_undo(self, value):
@@ -155,32 +189,6 @@ class MPK_mini_hero(ControlSurface):
             if self.song().can_undo == 1:
                 self.song().undo()
                 self.show_message(str('UNDO'))
-
-    def _setup_transport(self):
-        transport = TransportComponent()
-        transport.name = 'Transport'
-        transport.set_stop_button(self._stop_button)
-        transport.set_play_button(self._play_button)
-        transport.set_record_button(self._rec_button)
-        transport.set_loop_button(self._loop_button)
-        self._transport_view_modes = TransportViewModeSelector(transport, self._session, self._ffwd_button, self._rwd_button)
-        self._transport_view_modes.name = 'Transport_View_Modes'
-
-        session_recording = SessionRecordingComponent(ClipCreator(), ViewControlComponent(), name='Session_Recording', is_enabled=False, layer=Layer(record_button=self._overdub_button))
-        session_recording.set_enabled(True)
-
-    def _setup_device(self):
-        encoders = [ make_encoder(21 + index, 'Device_Control_%d' % index) for index in xrange(8) ]
-        self._encoders = tuple(encoders)
-        device = DeviceComponent()
-        device.name = 'Device_Component'
-        self.set_device_component(device)
-        device.set_parameter_controls(self._encoders)
-
-    def _setup_navigation(self):
-        self._session_navigation = SessionNavigationComponent(name='Session_Navigation')
-        self._session_navigation.set_next_track_button(self._next_track_button)
-        self._session_navigation.set_prev_track_button(self._prev_track_button)
 
     def _dummy_listener(self, value):
         pass
