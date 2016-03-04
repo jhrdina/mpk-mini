@@ -32,7 +32,7 @@ PADS_CHANNEL = 1
 PADS_CC_START = 101
 PADS_NOTES_START = 36
 SCENES_CHANNEL = 3
-SCENES_NOTES_START = 36
+SCENES_NOTES_START = 48
 
 # Fixed
 PADS_LED_START = 9
@@ -49,6 +49,11 @@ def make_pad_button(pad_mode, pad_no, name):
     else:
         button = ButtonElement(IS_MOMENTARY, MIDI_NOTE_TYPE, PADS_CHANNEL, PADS_NOTES_START + pad_no)
     
+    button.name = name
+    return button
+
+def make_scene_button(note_no, name):
+    button = ButtonElement(IS_MOMENTARY, MIDI_NOTE_TYPE, SCENES_CHANNEL, SCENES_NOTES_START + note_no)
     button.name = name
     return button
 
@@ -135,11 +140,17 @@ class MPK_mini_hero(ControlSurface):
 
         self._encoders = tuple([ make_encoder(21 + index, 'Device_Control_%d' % index) for index in xrange(8) ])
 
+        # Scenes
+
+        self._scene_launch_buttons = []
+        for key_no in [0,2,4,5,7,9,11,  12,14,16,17,19,21,23,  24]:
+            self._scene_launch_buttons.append(make_scene_button(key_no, 'Scene_Launch_%d' % key_no))
+
     def _setup_components(self):
         
         # Session
 
-        self._session = SessionComponent(8, 0)
+        self._session = SessionComponent(8, len(self._scene_launch_buttons))
         self._session.name = 'Session_Control'
         self._session.selected_scene().name = 'Selected_Scene'
         self._session.selected_scene().set_launch_button(self._scene_launch_button)
@@ -172,16 +183,22 @@ class MPK_mini_hero(ControlSurface):
 
         # Device
 
-        device = DeviceComponent()
-        device.name = 'Device_Component'
-        self.set_device_component(device)
-        device.set_parameter_controls(self._encoders)
+        # device = DeviceComponent()
+        # device.name = 'Device_Component'
+        # self.set_device_component(device)
+        # device.set_parameter_controls(self._encoders)
 
         # Navigation
 
         self._session_navigation = SessionNavigationComponent(name='Session_Navigation')
         self._session_navigation.set_next_track_button(self._next_track_button)
         self._session_navigation.set_prev_track_button(self._prev_track_button)
+
+        # Playing
+        # self._session.set_scene_launch_buttons(tuple(self._scene_launch_buttons))
+        for index in range(len(self._scene_launch_buttons)):
+            scene = self._session.scene(index)
+            scene.set_launch_button(self._scene_launch_buttons[index])
 
     @subject_slot('value')
     def _do_undo(self, value):
